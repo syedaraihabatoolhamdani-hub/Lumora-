@@ -1,1 +1,1257 @@
-testing
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumora</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        parchment: '#E8DCC8',
+                        'parchment-dim': '#A89B86',
+                        gold: '#C9A84C',
+                        'gold-light': '#DDBE5E',
+                        'gold-dark': '#8B7433',
+                        surface: { DEFAULT: '#0F0D0A', card: '#1A1610', raised: '#221F18', border: '#2E2A22', hover: '#2A261E' },
+                        muted: '#8B7D6B',
+                    },
+                    fontFamily: {
+                        cinzel: ['Cinzel', 'serif'],
+                        crimson: ['Crimson Text', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: 'Crimson Text', serif;
+            background: #0F0D0A;
+            color: #E8DCC8;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* === Noise Texture Overlay === */
+        .noise-overlay {
+            position: fixed; inset: 0;
+            pointer-events: none; z-index: 9998;
+            opacity: 0.035;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 200px 200px;
+        }
+
+        /* === Vignette === */
+        .vignette {
+            position: fixed; inset: 0;
+            background: radial-gradient(ellipse at 50% 30%, transparent 40%, rgba(15,13,10,0.75) 100%);
+            pointer-events: none; z-index: 9997;
+        }
+
+        /* === Dust Canvas === */
+        #dust-canvas {
+            position: fixed; inset: 0;
+            pointer-events: none; z-index: 9996;
+        }
+
+        /* === Scrollbar === */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0F0D0A; }
+        ::-webkit-scrollbar-thumb { background: #2E2A22; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #C9A84C; }
+
+        /* === Ornamental Divider === */
+        .ornament {
+            display: flex; align-items: center; gap: 16px;
+            justify-content: center; margin: 12px 0;
+        }
+        .ornament-line {
+            height: 1px; width: 80px;
+            background: linear-gradient(90deg, transparent, #C9A84C, transparent);
+        }
+        .ornament-diamond {
+            width: 8px; height: 8px;
+            background: #C9A84C;
+            transform: rotate(45deg);
+            flex-shrink: 0;
+        }
+
+        /* === Hero Lines === */
+        .hero-ornament {
+            display: flex; align-items: center; gap: 20px;
+            justify-content: center;
+        }
+        .hero-ornament .line {
+            height: 1px; width: 60px;
+            background: linear-gradient(90deg, transparent, #8B7433);
+        }
+        .hero-ornament .line:last-child {
+            background: linear-gradient(90deg, #8B7433, transparent);
+        }
+        .hero-ornament .dot {
+            width: 5px; height: 5px;
+            background: #C9A84C;
+            transform: rotate(45deg);
+        }
+
+        /* === Story Cards === */
+        .story-card {
+            opacity: 0;
+            transform: translateY(40px) scale(0.97);
+            transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                        transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                        box-shadow 0.4s ease,
+                        border-color 0.4s ease;
+            position: relative;
+            border: 1px solid #2E2A22;
+            background: #1A1610;
+            border-radius: 4px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .story-card.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        .story-card:hover {
+            border-color: #8B7433;
+            box-shadow: 0 0 40px rgba(201, 168, 76, 0.08), 0 8px 32px rgba(0,0,0,0.4);
+            transform: translateY(-4px) scale(1);
+        }
+
+        /* Card corner ornaments */
+        .story-card::before, .story-card::after {
+            content: ''; position: absolute;
+            width: 16px; height: 16px;
+            border-color: #C9A84C;
+            opacity: 0; transition: opacity 0.4s ease;
+            z-index: 2; pointer-events: none;
+        }
+        .story-card::before {
+            top: 8px; left: 8px;
+            border-top: 1px solid; border-left: 1px solid;
+        }
+        .story-card::after {
+            bottom: 8px; right: 8px;
+            border-bottom: 1px solid; border-right: 1px solid;
+        }
+        .story-card:hover::before, .story-card:hover::after { opacity: 0.6; }
+
+        /* === Thumbnail === */
+        .card-thumb {
+            position: relative; overflow: hidden;
+            aspect-ratio: 16/9;
+            background: #111;
+        }
+        .card-thumb img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), filter 0.4s ease;
+            filter: saturate(0.7) brightness(0.8);
+        }
+        .story-card:hover .card-thumb img {
+            transform: scale(1.05);
+            filter: saturate(0.85) brightness(0.9);
+        }
+        .play-overlay {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(15,13,10,0.3);
+            transition: background 0.4s ease;
+        }
+        .story-card:hover .play-overlay {
+            background: rgba(15,13,10,0.15);
+        }
+        .play-btn {
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            background: rgba(201, 168, 76, 0.85);
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.3s ease, background 0.3s ease;
+            backdrop-filter: blur(4px);
+        }
+        .play-btn i { color: #0F0D0A; font-size: 18px; margin-left: 3px; }
+        .story-card:hover .play-btn { transform: scale(1.1); background: rgba(201, 168, 76, 1); }
+
+        /* === Category Tag === */
+        .cat-tag {
+            display: inline-block;
+            font-family: 'Cinzel', serif;
+            font-size: 10px; font-weight: 600;
+            letter-spacing: 0.12em; text-transform: uppercase;
+            color: #C9A84C;
+            border: 1px solid rgba(201, 168, 76, 0.3);
+            padding: 3px 10px;
+            border-radius: 2px;
+        }
+
+        /* === Custom Select === */
+        .custom-select-wrap {
+            position: relative;
+        }
+        .custom-select-btn {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #1A1610;
+            border: 1px solid #2E2A22;
+            border-radius: 4px;
+            color: #E8DCC8;
+            font-family: 'Crimson Text', serif;
+            font-size: 16px;
+            cursor: pointer;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            min-width: 200px;
+            user-select: none;
+        }
+        .custom-select-btn:hover, .custom-select-btn.open {
+            border-color: #8B7433;
+        }
+        .custom-select-btn.open {
+            box-shadow: 0 0 20px rgba(201, 168, 76, 0.1);
+            border-radius: 4px 4px 0 0;
+        }
+        .custom-select-btn i { color: #8B7D6B; font-size: 12px; transition: transform 0.3s ease; }
+        .custom-select-btn.open i { transform: rotate(180deg); }
+        .custom-select-dropdown {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: #1A1610;
+            border: 1px solid #8B7433;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            z-index: 100;
+            display: none;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .custom-select-dropdown.open { display: block; }
+        .custom-select-option {
+            padding: 10px 16px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+            color: #A89B86;
+        }
+        .custom-select-option:hover {
+            background: #221F18;
+            color: #E8DCC8;
+        }
+        .custom-select-option.active {
+            color: #C9A84C;
+            background: rgba(201, 168, 76, 0.08);
+        }
+
+        /* === Search Input === */
+        .search-input {
+            background: #1A1610;
+            border: 1px solid #2E2A22;
+            border-radius: 4px;
+            padding: 12px 16px 12px 44px;
+            color: #E8DCC8;
+            font-family: 'Crimson Text', serif;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            width: 100%;
+            max-width: 400px;
+        }
+        .search-input::placeholder { color: #5A5246; }
+        .search-input:focus {
+            border-color: #8B7433;
+            box-shadow: 0 0 20px rgba(201, 168, 76, 0.08);
+        }
+
+        /* === Modal === */
+        .modal-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(10, 8, 6, 0.92);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        .modal-backdrop.open { opacity: 1; pointer-events: all; }
+        .modal-content {
+            background: #1A1610;
+            border: 1px solid #2E2A22;
+            border-radius: 6px;
+            max-width: 780px; width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.92) translateY(20px);
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
+        }
+        .modal-backdrop.open .modal-content {
+            transform: scale(1) translateY(0);
+        }
+        .modal-content::-webkit-scrollbar { width: 6px; }
+        .modal-content::-webkit-scrollbar-track { background: transparent; }
+        .modal-content::-webkit-scrollbar-thumb { background: #2E2A22; border-radius: 3px; }
+
+        /* === Story Text Reveal === */
+        .story-part {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+            border-left: 2px solid rgba(201, 168, 76, 0.2);
+            padding-left: 20px;
+            margin-bottom: 20px;
+        }
+        .story-part.revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* === Toast === */
+        .toast-container {
+            position: fixed; bottom: 24px; right: 24px;
+            z-index: 99999;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            background: #221F18;
+            border: 1px solid #2E2A22;
+            border-left: 3px solid #C9A84C;
+            padding: 14px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #E8DCC8;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            animation: toastIn 0.4s ease forwards;
+            max-width: 340px;
+        }
+        .toast.out { animation: toastOut 0.3s ease forwards; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+
+        /* === Auth Modal === */
+        .auth-modal-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(10, 8, 6, 0.92);
+            backdrop-filter: blur(8px);
+            z-index: 10001;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        .auth-modal-backdrop.open { opacity: 1; pointer-events: all; }
+        .auth-modal {
+            background: #1A1610;
+            border: 1px solid #2E2A22;
+            border-radius: 6px;
+            max-width: 400px; width: 100%;
+            padding: 40px 32px;
+            transform: scale(0.92);
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
+        }
+        .auth-modal-backdrop.open .auth-modal { transform: scale(1); }
+        .auth-input {
+            width: 100%;
+            background: #0F0D0A;
+            border: 1px solid #2E2A22;
+            border-radius: 4px;
+            padding: 12px 14px;
+            color: #E8DCC8;
+            font-family: 'Crimson Text', serif;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        .auth-input:focus { border-color: #8B7433; }
+        .auth-input.error { border-color: #8B3A3A; }
+        .error-msg { color: #C45C5C; font-size: 13px; margin-top: 4px; display: none; }
+        .error-msg.show { display: block; }
+
+        /* === Empty State === */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            display: none;
+        }
+        .empty-state.show { display: block; }
+
+        /* === Page Load Animation === */
+        .page-loader {
+            position: fixed; inset: 0;
+            background: #0F0D0A;
+            z-index: 99999;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 20px;
+            transition: opacity 0.8s ease;
+        }
+        .page-loader.done { opacity: 0; pointer-events: none; }
+        .loader-ornament {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .loader-bar {
+            width: 40px; height: 1px;
+            background: #2E2A22;
+            position: relative; overflow: hidden;
+        }
+        .loader-bar::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: #C9A84C;
+            animation: loaderPulse 1.2s ease-in-out infinite;
+        }
+        .loader-bar:nth-child(3)::after { animation-delay: 0.2s; }
+        @keyframes loaderPulse {
+            0%, 100% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+        }
+
+        /* === Reduced Motion === */
+        @media (prefers-reduced-motion: reduce) {
+            .story-card, .modal-content, .auth-modal, .story-part, .toast {
+                transition: none !important;
+                animation: none !important;
+            }
+            .story-card { opacity: 1; transform: none; }
+            .story-part { opacity: 1; transform: none; }
+        }
+
+        /* === Mobile Adjustments === */
+        @media (max-width: 640px) {
+            .hero-ornament .line { width: 30px; }
+            .ornament-line { width: 40px; }
+            .play-btn { width: 44px; height: 44px; }
+            .play-btn i { font-size: 14px; }
+            .custom-select-btn { min-width: 160px; font-size: 14px; padding: 10px 12px; }
+            .search-input { font-size: 14px; padding: 10px 14px 10px 38px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Page Loader -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-ornament">
+            <div class="loader-bar"></div>
+            <div class="ornament-diamond"></div>
+            <div class="loader-bar"></div>
+        </div>
+        <span class="font-cinzel text-gold-dark text-xs tracking-[0.3em] uppercase">Lumora</span>
+    </div>
+
+    <!-- Atmospheric Layers -->
+    <div class="noise-overlay" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <canvas id="dust-canvas" aria-hidden="true"></canvas>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-[9990] transition-all duration-500" id="mainHeader">
+        <nav class="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
+            <a href="#" class="font-cinzel text-gold text-lg tracking-[0.15em] font-bold hover:text-gold-light transition-colors" aria-label="Lumora Home">
+                LUMORA
+            </a>
+            <button id="signInBtn" class="font-cinzel text-xs tracking-[0.15em] uppercase text-parchment-dim border border-surface-border rounded px-4 py-2 hover:border-gold-dark hover:text-gold transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-gold-dark" aria-label="Sign In">
+                Sign In
+            </button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="min-h-[70vh] flex flex-col items-center justify-center text-center px-5 pt-24 pb-8">
+            <div class="hero-ornament mb-6">
+                <span class="line"></span>
+                <span class="dot"></span>
+                <span class="line"></span>
+            </div>
+            <h1 class="font-cinzel text-gold font-900 text-5xl sm:text-7xl md:text-8xl tracking-[0.12em] leading-none mb-4" style="text-shadow: 0 0 60px rgba(201,168,76,0.15);">
+                LUMORA
+            </h1>
+            <p class="font-crimson text-parchment-dim text-lg sm:text-xl italic tracking-wide mb-2">
+                Where History Speaks
+            </p>
+            <div class="ornament mt-6">
+                <span class="ornament-line"></span>
+                <span class="ornament-diamond"></span>
+                <span class="ornament-line"></span>
+            </div>
+            <p class="font-crimson text-muted text-base sm:text-lg max-w-lg mt-6 leading-relaxed">
+                Step into the stories that shaped civilizations. Each narrative unfolds through sight and sound, pulling you into the heart of the ancient world.
+            </p>
+            <div class="mt-10 animate-bounce">
+                <i class="fa-solid fa-chevron-down text-gold-dark text-sm opacity-60"></i>
+            </div>
+        </section>
+
+        <!-- Search & Filter Section -->
+        <section class="max-w-5xl mx-auto px-5 pb-8">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                <!-- Search -->
+                <div class="relative flex-1 max-w-full sm:max-w-[400px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-muted text-sm"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search stories..." aria-label="Search stories">
+                </div>
+                <!-- Category Dropdown -->
+                <div class="custom-select-wrap" id="categorySelect">
+                    <button class="custom-select-btn" id="categoryBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="categoryLabel">All Categories</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div class="custom-select-dropdown" id="categoryDropdown" role="listbox">
+                        <!-- Options injected by JS -->
+                    </div>
+                </div>
+            </div>
+            <!-- Active filter indicator -->
+            <div id="filterInfo" class="mt-3 text-muted text-sm font-crimson hidden">
+                Showing <span id="resultCount" class="text-gold">0</span> stories
+            </div>
+        </section>
+
+        <!-- Stories Grid (Vertical) -->
+        <section class="max-w-3xl mx-auto px-5 pb-20" id="storiesSection">
+            <div class="flex flex-col gap-6" id="storiesGrid">
+                <!-- Cards injected by JS -->
+            </div>
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState">
+                <i class="fa-solid fa-scroll text-surface-border text-4xl mb-4"></i>
+                <p class="font-cinzel text-parchment-dim text-lg tracking-wide mb-2">No Stories Found</p>
+                <p class="font-crimson text-muted text-base">Try adjusting your search or category filter.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-surface-border py-12 px-5">
+        <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div class="text-center sm:text-left">
+                <span class="font-cinzel text-gold text-sm tracking-[0.2em] font-bold">LUMORA</span>
+                <p class="font-crimson text-muted text-sm mt-1">Interactive Historical Storytelling</p>
+            </div>
+            <div class="flex gap-6">
+                <a href="#" class="text-muted hover:text-gold transition-colors text-sm font-crimson">About</a>
+                <a href="#" class="text-muted hover:text-gold transition-colors text-sm font-crimson">Categories</a>
+                <a href="#" class="text-muted hover:text-gold transition-colors text-sm font-crimson">Contact</a>
+            </div>
+            <p class="font-crimson text-muted text-xs tracking-wide">&copy; 2025 Lumora. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Story Modal -->
+    <div class="modal-backdrop" id="storyModal" role="dialog" aria-modal="true" aria-label="Story viewer">
+        <div class="modal-content" id="storyModalContent">
+            <!-- Injected by JS -->
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div class="auth-modal-backdrop" id="authModal">
+        <div class="auth-modal">
+            <button id="authClose" class="absolute top-4 right-4 text-muted hover:text-gold transition-colors" aria-label="Close">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h2 class="font-cinzel text-gold text-xl tracking-[0.1em] font-bold text-center mb-2">Welcome Back</h2>
+            <div class="ornament mb-6">
+                <span class="ornament-line" style="width:30px;"></span>
+                <span class="ornament-diamond" style="width:5px;height:5px;"></span>
+                <span class="ornament-line" style="width:30px;"></span>
+            </div>
+            <form id="authForm" novalidate>
+                <div class="mb-4">
+                    <label class="block text-parchment-dim text-sm mb-1.5 font-crimson" for="authEmail">Email</label>
+                    <input type="email" id="authEmail" class="auth-input" placeholder="your@email.com" autocomplete="email">
+                    <p class="error-msg" id="emailError">Please enter a valid email address.</p>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-parchment-dim text-sm mb-1.5 font-crimson" for="authPassword">Password</label>
+                    <input type="password" id="authPassword" class="auth-input" placeholder="Enter your password" autocomplete="current-password">
+                    <p class="error-msg" id="passError">Password must be at least 6 characters.</p>
+                </div>
+                <button type="submit" class="w-full bg-gold hover:bg-gold-light text-surface font-cinzel text-sm tracking-[0.12em] uppercase font-bold py-3 rounded transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-gold-dark">
+                    Sign In
+                </button>
+                <p class="text-center text-muted text-sm mt-4 font-crimson">
+                    No account? <a href="#" id="switchToSignup" class="text-gold hover:text-gold-light transition-colors underline">Create one</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+    <script>
+    /* =============================================================
+       DATA LAYER — Future: Replace with Supabase queries
+       =============================================================
+       const { data: stories, error } = await supabase
+           .from('stories')
+           .select('*')
+           .order('created_at', { ascending: false });
+
+       const { data: categories } = await supabase
+           .from('categories')
+           .select('*');
+       ============================================================= */
+
+    const CATEGORIES = [
+        "All Categories",
+        "Ancient Civilizations",
+        "Mythology & Legends",
+        "Lost Empires",
+        "Ancient Artifacts",
+        "Medieval Era",
+        "Forgotten Wars"
+    ];
+
+    const STORIES = [
+        {
+            id: 1,
+            title: "The Fall of Babylon",
+            category: "Ancient Civilizations",
+            description: "In 539 BC, Cyrus the Great breached the walls of Babylon, ending one of history's most magnificent empires. Walk through the fabled Ishtar Gate and witness the last days of Mesopotamian glory.",
+            /* Cloudinary Integration Point:
+               image: `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${PUBLIC_ID}`
+               video: `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/${VIDEO_PUBLIC_ID}` */
+            image: "https://picsum.photos/seed/babylon-gates/800/450",
+            duration: "8 min",
+            storyParts: [
+                "The Euphrates flowed through the heart of Babylon like a vein of silver under moonlight. Its walls, wide enough for two chariots to race side by side atop them, had never been breached. Inside, the Hanging Gardens cascaded with green in the desert air, and the ziggurat of Marduk pierced the sky. Babylon believed itself eternal.",
+                "But Cyrus had a plan born not of brute force, but of patience. He ordered his engineers to divert the Euphrates upstream, slowly starving the great river that fed the city. The water level dropped, inch by inch, night after night, until the riverbed became passable — a wound in Babylon's defenses no wall could protect.",
+                "Under the cover of a festival night, Persian soldiers waded through the shallow channel beneath the impenetrable walls. By dawn, the gates stood open. Babylon did not fall — it was quietly taken. And with it, the last breath of independent Mesopotamia expired after three thousand years."
+            ]
+        },
+        {
+            id: 2,
+            title: "The Siege of Troy",
+            category: "Mythology & Legends",
+            description: "For ten years, the Greeks laid siege to the impenetrable city of Troy. Discover the truth behind the myth — from Achilles' wrath to the wooden horse that changed everything.",
+            image: "https://picsum.photos/seed/troy-walls/800/450",
+            duration: "11 min",
+            storyParts: [
+                "The beaches of Troy were white with Greek tents for a decade. Ten years of blood and stalemate, of heroes falling on both sides, of gods walking among mortals. Hector dragged Patroclus. Achilles dragged Hector. The cycle of vengeance seemed without end, and the walls of Ilium held firm against every assault.",
+                "Then Odysseus, the man of many twists, conceived a stratagem that would echo through millennia. A great wooden horse, hollow within, was built and left upon the shore while the Greek fleet sailed away — or appeared to. The Trojans, believing the war won, dragged the offering inside their sacred walls.",
+                "That night, under a moonless sky, the hidden warriors emerged. They opened the gates to the returning fleet, and Troy — the city that had defied an army for ten years — fell in a single night. Whether myth or memory, the story endures because it speaks to an eternal truth: pride is the fortress that destroys itself."
+            ]
+        },
+        {
+            id: 3,
+            title: "The Library of Alexandria",
+            category: "Lost Empires",
+            description: "The greatest repository of knowledge the ancient world had ever known. Explore the halls where scholars debated, and uncover the mystery of its ultimate destruction.",
+            image: "https://picsum.photos/seed/alexandria-library/800/450",
+            duration: "9 min",
+            storyParts: [
+                "In the third century BC, Ptolemy I envisioned a temple not to gods, but to knowledge itself. The Library of Alexandria grew to hold an estimated 400,000 scrolls — nearly every work of literature, science, and philosophy from the known world. Scholars were invited at the king's expense to read, translate, and debate beneath its colonnades.",
+                "Eratosthenes calculated the Earth's circumference within striking distance of the truth. Euclid wrote his Elements. Herophilus mapped the human body through dissection — a practice forbidden elsewhere. The library was not merely a collection; it was an engine of discovery, the world's first research institution.",
+                "Its destruction was not a single event but a slow unraveling — fires, neglect, and the chaos of empires. Each loss was a silence. Each burned scroll was a conversation cut short across time. We will never know what was lost, and that unknowing is perhaps the greatest tragedy the ancient world left us."
+            ]
+        },
+        {
+            id: 4,
+            title: "The Code of Hammurabi",
+            category: "Ancient Artifacts",
+            description: "Carved into a black diorite stele in 1754 BC, these 282 laws shaped the concept of justice for millennia. Stand before the stone that spoke the first legal words.",
+            image: "https://picsum.photos/seed/hammurabi-stone/800/450",
+            duration: "7 min",
+            storyParts: [
+                "In the ancient city of Sippar, a massive pillar of black diorite was erected in the temple of Shamash, god of justice. Upon it, 282 laws were inscribed in cuneiform — covering commerce, property, family, and labor. At its summit, a relief showed King Hammurabi receiving authority from the sun god himself, establishing a principle: law comes from something greater than men.",
+                "The code was remarkably sophisticated for its age. It distinguished between intentional and accidental harm. It protected borrowers from predatory lenders. It prescribed specific punishments for specific crimes — an early attempt to remove arbitrariness from justice. 'An eye for an eye' was not cruelty; it was proportionality, a radical idea in 1754 BC.",
+                "Today the stele stands in the Louvre, still speaking after nearly four millennia. It reminds us that the impulse to codify justice — to write down the rules by which a civilization governs itself — is among the oldest and most enduring of human ambitions."
+            ]
+        },
+        {
+            id: 5,
+            title: "The Viking Longships",
+            category: "Medieval Era",
+            description: "From the fjords of Scandinavia, these sleek vessels carried warriors across oceans. Discover the engineering marvel that terrorized European coasts for three centuries.",
+            image: "https://picsum.photos/seed/viking-sea/800/450",
+            duration: "10 min",
+            storyParts: [
+                "The longship was a paradox: shallow enough to navigate rivers, sturdy enough to cross the open Atlantic. Built from overlapping oak planks held by iron rivets, its hull flexed with the waves rather than fighting them. A single mast carried a square sail of wool, dyed red or striped — a banner that coastal monks learned to dread.",
+                "At the prow, a dragon's head carved in wood stared forward — not merely decoration, but a psychological weapon. Villagers along the coasts of England, Francia, and Ireland learned to watch the horizon. When the sail appeared, there was no defense. The longship could beach directly, warriors leaping ashore before the local lord could muster his men.",
+                "But the Vikings were not only raiders. These same ships carried traders to Byzantium, settlers to Iceland and Greenland, and explorers to the shores of North America five centuries before Columbus. The longship did not just connect Scandinavia to the world — it reshaped the map of it."
+            ]
+        },
+        {
+            id: 6,
+            title: "The Battle of Thermopylae",
+            category: "Forgotten Wars",
+            description: "Three hundred Spartans against the might of Persia. Experience the legendary stand at the Hot Gates, where courage defied the mathematics of war.",
+            image: "https://picsum.photos/seed/thermopylae-pass/800/450",
+            duration: "9 min",
+            storyParts: [
+                "The pass at Thermopylae was a choke point — a narrow coastal road flanked by mountains on one side and the sea on the other. In 480 BC, King Leonidas of Sparta chose this ground to face the Persian army of Xerxes, said to number over a million men. He brought three hundred of his finest warriors and a few thousand allies. The mathematics were impossible. He came anyway.",
+                "For two days, the Greeks held. The narrowness of the pass neutralized the Persian advantage in numbers. The Spartan phalanx — interlocking shields, overlapping spears — became a wall of bronze and flesh that the Persians could not break. Wave after wave of Immortals, Xerxes' elite guard, crashed against them and fell back.",
+                "On the third day, a local traitor revealed a mountain path that outflanked the pass. Leonidas dismissed most of his allies. He and his three hundred stayed — not because they could win, but because a Spartan did not retreat. Every man died. But their sacrifice bought Athens the time it needed to evacuate, to fight another day, to ultimately save Greece."
+            ]
+        },
+        {
+            id: 7,
+            title: "The Rosetta Stone",
+            category: "Ancient Artifacts",
+            description: "A broken slab of granodiorite unlocked the silence of ancient Egypt. Follow the race to decipher hieroglyphs that had been dead for 1,400 years.",
+            image: "https://picsum.photos/seed/rosetta-stone-artifact/800/450",
+            duration: "8 min",
+            storyParts: [
+                "In July 1799, French soldiers rebuilding a fort in the Nile Delta unearthed a broken stone slab. It bore three scripts: hieroglyphic, demotic, and Greek. The Greek was immediately readable — it was a decree from 196 BC honoring Ptolemy V. But the hieroglyphs had been silent for fourteen centuries. No living person could read them.",
+                "The race to decipher the stone consumed scholars across Europe. Thomas Young, an English polymath, identified that the hieroglyphs enclosed in cartouches spelled royal names. But it was Jean-François Champollion, a sickly French prodigy, who made the final breakthrough in 1822 — realizing that hieroglyphs were not purely symbolic but partly phonetic, a hybrid system far more complex than anyone had imagined.",
+                "With that insight, the entire civilization of ancient Egypt opened like a book. Temples, tombs, papyri — all began to speak again. The Rosetta Stone is not beautiful. It is broken, battered, incomplete. Yet no single artifact in history has given voice to more lost words."
+            ]
+        },
+        {
+            id: 8,
+            title: "The Fall of Constantinople",
+            category: "Lost Empires",
+            description: "May 29, 1453. Sultan Mehmed II's cannons shattered the Theodosian Walls, ending the last remnant of the Roman Empire after 1,100 years.",
+            image: "https://picsum.photos/seed/constantinople-walls/800/450",
+            duration: "12 min",
+            storyParts: [
+                "Constantinople had survived sieges before — Avars, Arabs, Bulgars, Rus. Each time, its legendary walls held. The Theodosian Walls were a masterwork: three layers of fortification, towers every fifty meters, a moat stretching the full length. For over a thousand years, they were considered impregnable. But in 1453, a nineteen-year-old sultan brought something new: cannon.",
+                "Mehmed II, called the Conqueror, commissioned Orban, a Hungarian engineer, to cast the largest cannons the world had ever seen. One bombard fired stone balls weighing over half a ton. The walls, designed to absorb the impact of traditional siege engines, cracked and crumbled under the relentless bombardment. The defenders patched by night; the cannons broke by day.",
+                "Before dawn on May 29, the final assault came. Through a small postern gate left unlocked — whether by accident or treachery remains debated — Janissaries poured into the city. Emperor Constantine XI, last of the Roman emperors, died fighting on the walls. By noon, the crescent flag flew over Hagia Sophia. An empire that had endured for 1,100 years ended not with a treaty, but with a gate left ajar."
+            ]
+        }
+    ];
+
+    /* =============================================================
+       AUTH LAYER — Future: Replace with Supabase Auth
+       =============================================================
+       import { createClient } from '@supabase/supabase-js';
+       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+       // Sign In
+       const { data, error } = await supabase.auth.signInWithPassword({
+           email: email,
+           password: password,
+       });
+
+       // Sign Up
+       const { data, error } = await supabase.auth.signUp({
+           email: email,
+           password: password,
+       });
+
+       // Get Current User
+       const { data: { user } } = await supabase.auth.getUser();
+       ============================================================= */
+
+    /* =============================================================
+       DUST PARTICLE SYSTEM
+       ============================================================= */
+    const dustCanvas = document.getElementById('dust-canvas');
+    const dustCtx = dustCanvas.getContext('2d');
+    let dustParticles = [];
+
+    function resizeDustCanvas() {
+        dustCanvas.width = window.innerWidth;
+        dustCanvas.height = window.innerHeight;
+    }
+    resizeDustCanvas();
+    window.addEventListener('resize', resizeDustCanvas);
+
+    class DustParticle {
+        constructor() { this.reset(true); }
+        reset(initial = false) {
+            this.x = Math.random() * dustCanvas.width;
+            this.y = initial
+                ? Math.random() * dustCanvas.height
+                : dustCanvas.height + Math.random() * 40;
+            this.size = Math.random() * 1.8 + 0.4;
+            this.speedY = -(Math.random() * 0.25 + 0.08);
+            this.speedX = (Math.random() - 0.5) * 0.15;
+            this.opacity = Math.random() * 0.35 + 0.05;
+            this.life = 0;
+            this.maxLife = Math.random() * 600 + 300;
+            this.wobbleAmp = Math.random() * 0.3;
+            this.wobbleFreq = Math.random() * 0.01 + 0.005;
+        }
+        update() {
+            this.x += this.speedX + Math.sin(this.life * this.wobbleFreq) * this.wobbleAmp;
+            this.y += this.speedY;
+            this.life++;
+            if (this.life > this.maxLife || this.y < -20) this.reset();
+        }
+        draw(ctx) {
+            const fade = 1 - (this.life / this.maxLife);
+            const alpha = this.opacity * fade;
+            if (alpha <= 0) return;
+            ctx.fillStyle = `rgba(201,168,76,${alpha})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, Math.max(0.1, this.size), 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    /* Initialize particles — fewer on mobile for performance */
+    const particleCount = window.innerWidth < 640 ? 25 : 50;
+    for (let i = 0; i < particleCount; i++) {
+        dustParticles.push(new DustParticle());
+    }
+
+    function animateDust() {
+        dustCtx.clearRect(0, 0, dustCanvas.width, dustCanvas.height);
+        for (const p of dustParticles) {
+            p.update();
+            p.draw(dustCtx);
+        }
+        requestAnimationFrame(animateDust);
+    }
+    animateDust();
+
+    /* =============================================================
+       HEADER SCROLL EFFECT
+       ============================================================= */
+    const mainHeader = document.getElementById('mainHeader');
+    let lastScroll = 0;
+
+    window.addEventListener('scroll', () => {
+        const scrollY = window.scrollY;
+        if (scrollY > 60) {
+            mainHeader.style.background = 'rgba(15,13,10,0.85)';
+            mainHeader.style.backdropFilter = 'blur(12px)';
+            mainHeader.style.borderBottom = '1px solid #2E2A22';
+        } else {
+            mainHeader.style.background = 'transparent';
+            mainHeader.style.backdropFilter = 'none';
+            mainHeader.style.borderBottom = '1px solid transparent';
+        }
+        lastScroll = scrollY;
+    }, { passive: true });
+
+    /* =============================================================
+       CATEGORY DROPDOWN
+       ============================================================= */
+    const categoryBtn = document.getElementById('categoryBtn');
+    const categoryDropdown = document.getElementById('categoryDropdown');
+    const categoryLabel = document.getElementById('categoryLabel');
+    let selectedCategory = CATEGORIES[0];
+
+    /* Populate dropdown */
+    CATEGORIES.forEach((cat, i) => {
+        const opt = document.createElement('div');
+        opt.className = `custom-select-option${i === 0 ? ' active' : ''}`;
+        opt.textContent = cat;
+        opt.setAttribute('role', 'option');
+        opt.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+        opt.addEventListener('click', () => {
+            selectedCategory = cat;
+            categoryLabel.textContent = cat;
+            categoryDropdown.querySelectorAll('.custom-select-option').forEach(o => {
+                o.classList.remove('active');
+                o.setAttribute('aria-selected', 'false');
+            });
+            opt.classList.add('active');
+            opt.setAttribute('aria-selected', 'true');
+            closeDropdown();
+            filterStories();
+        });
+        categoryDropdown.appendChild(opt);
+    });
+
+    function closeDropdown() {
+        categoryBtn.classList.remove('open');
+        categoryDropdown.classList.remove('open');
+        categoryBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    categoryBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = categoryDropdown.classList.contains('open');
+        if (isOpen) {
+            closeDropdown();
+        } else {
+            categoryBtn.classList.add('open');
+            categoryDropdown.classList.add('open');
+            categoryBtn.setAttribute('aria-expanded', 'true');
+        }
+    });
+
+    document.addEventListener('click', () => closeDropdown());
+    categoryDropdown.addEventListener('click', (e) => e.stopPropagation());
+
+    /* =============================================================
+       SEARCH & FILTER
+       ============================================================= */
+    const searchInput = document.getElementById('searchInput');
+    const storiesGrid = document.getElementById('storiesGrid');
+    const emptyState = document.getElementById('emptyState');
+    const filterInfo = document.getElementById('filterInfo');
+    const resultCount = document.getElementById('resultCount');
+
+    let searchDebounce;
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(filterStories, 200);
+    });
+
+    function filterStories() {
+        const query = searchInput.value.toLowerCase().trim();
+        const filtered = STORIES.filter(s => {
+            const matchesCategory = selectedCategory === 'All Categories' || s.category === selectedCategory;
+            const matchesSearch = !query ||
+                s.title.toLowerCase().includes(query) ||
+                s.description.toLowerCase().includes(query) ||
+                s.category.toLowerCase().includes(query);
+            return matchesCategory && matchesSearch;
+        });
+        renderStories(filtered);
+
+        /* Show/hide filter info */
+        if (query || selectedCategory !== 'All Categories') {
+            filterInfo.classList.remove('hidden');
+            resultCount.textContent = filtered.length;
+        } else {
+            filterInfo.classList.add('hidden');
+        }
+    }
+
+    /* =============================================================
+       RENDER STORY CARDS
+       ============================================================= */
+    function renderStories(stories) {
+        storiesGrid.innerHTML = '';
+
+        if (stories.length === 0) {
+            emptyState.classList.add('show');
+            return;
+        }
+        emptyState.classList.remove('show');
+
+        stories.forEach((story, index) => {
+            const card = document.createElement('article');
+            card.className = 'story-card';
+            card.style.transitionDelay = `${index * 80}ms`;
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('role', 'button');
+            card.setAttribute('aria-label', `Open story: ${story.title}`);
+
+            card.innerHTML = `
+                <div class="card-thumb">
+                    <img src="${story.image}" alt="${story.title}" loading="lazy">
+                    <div class="play-overlay">
+                        <div class="play-btn">
+                            <i class="fa-solid fa-play"></i>
+                        </div>
+                    </div>
+                    <span class="absolute bottom-3 right-3 bg-surface/80 text-parchment-dim text-xs font-cinzel tracking-wider px-2 py-1 rounded backdrop-blur-sm">
+                        ${story.duration}
+                    </span>
+                </div>
+                <div class="p-5 sm:p-6">
+                    <span class="cat-tag mb-3">${story.category}</span>
+                    <h3 class="font-cinzel text-parchment text-xl sm:text-2xl font-bold tracking-wide mt-3 mb-2 leading-snug">${story.title}</h3>
+                    <p class="font-crimson text-muted text-base sm:text-lg leading-relaxed">${story.description}</p>
+                </div>
+            `;
+
+            card.addEventListener('click', () => openStoryModal(story));
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openStoryModal(story);
+                }
+            });
+
+            storiesGrid.appendChild(card);
+        });
+
+        /* Trigger scroll-based reveal for new cards */
+        observeCards();
+    }
+
+    /* =============================================================
+       INTERSECTION OBSERVER — Scroll Reveal
+       ============================================================= */
+    let cardObserver;
+
+    function observeCards() {
+        if (cardObserver) cardObserver.disconnect();
+
+        cardObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    cardObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.story-card').forEach(card => {
+            cardObserver.observe(card);
+        });
+    }
+
+    /* =============================================================
+       STORY MODAL — Interactive Narrative
+       ============================================================= */
+    const storyModal = document.getElementById('storyModal');
+    const storyModalContent = document.getElementById('storyModalContent');
+    let currentStory = null;
+    let currentPartIndex = 0;
+
+    function openStoryModal(story) {
+        currentStory = story;
+        currentPartIndex = 0;
+
+        storyModalContent.innerHTML = `
+            <button class="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center rounded-full border border-surface-border text-muted hover:text-gold hover:border-gold-dark transition-all" id="modalClose" aria-label="Close story">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="relative aspect-video overflow-hidden bg-surface">
+                <img src="${story.image}" alt="${story.title}" class="w-full h-full object-cover" style="filter: saturate(0.6) brightness(0.7);">
+                <div class="absolute inset-0 flex items-center justify-center bg-surface/30">
+                    <div class="w-16 h-16 rounded-full bg-gold/80 flex items-center justify-center cursor-pointer hover:bg-gold hover:scale-110 transition-all" id="modalPlayBtn">
+                        <i class="fa-solid fa-play text-surface text-xl ml-1"></i>
+                    </div>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-surface-card to-transparent"></div>
+            </div>
+            <div class="p-6 sm:p-8">
+                <span class="cat-tag">${story.category}</span>
+                <h2 class="font-cinzel text-parchment text-2xl sm:text-3xl font-bold tracking-wide mt-3 mb-1">${story.title}</h2>
+                <p class="text-gold-dark text-sm font-cinzel tracking-wider mb-6" id="chapterIndicator">Chapter 1 of ${story.storyParts.length}</p>
+                <div id="storyPartsContainer">
+                    ${story.storyParts.map((part, i) => `
+                        <div class="story-part${i === 0 ? ' revealed' : ''}" data-part="${i}">
+                            <p class="font-crimson text-parchment-dim text-base sm:text-lg leading-relaxed">${part}</p>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="mt-8 flex items-center gap-4">
+                    <button id="continueBtn" class="bg-gold hover:bg-gold-light text-surface font-cinzel text-sm tracking-[0.12em] uppercase font-bold px-6 py-3 rounded transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-gold-dark">
+                        Continue
+                    </button>
+                    <button id="restartBtn" class="text-muted hover:text-gold font-cinzel text-sm tracking-[0.1em] uppercase transition-colors hidden focus:outline-none">
+                        Restart
+                    </button>
+                </div>
+            </div>
+        `;
+
+        /* Wire modal buttons */
+        document.getElementById('modalClose').addEventListener('click', closeStoryModal);
+        document.getElementById('continueBtn').addEventListener('click', advanceStory);
+        document.getElementById('restartBtn').addEventListener('click', restartStory);
+        document.getElementById('modalPlayBtn').addEventListener('click', () => {
+            showToast('Video playback will be available with Cloudinary integration.');
+        });
+
+        storyModal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+
+        updateContinueButton();
+    }
+
+    function advanceStory() {
+        if (!currentStory) return;
+        currentPartIndex++;
+        if (currentPartIndex >= currentStory.storyParts.length) return;
+
+        const partEl = document.querySelector(`.story-part[data-part="${currentPartIndex}"]`);
+        if (partEl) {
+            partEl.classList.add('revealed');
+            /* Scroll to the new part smoothly */
+            setTimeout(() => {
+                partEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+
+        updateContinueButton();
+    }
+
+    function updateContinueButton() {
+        const btn = document.getElementById('continueBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const indicator = document.getElementById('chapterIndicator');
+
+        if (!btn || !currentStory) return;
+
+        indicator.textContent = `Chapter ${currentPartIndex + 1} of ${currentStory.storyParts.length}`;
+
+        if (currentPartIndex >= currentStory.storyParts.length - 1) {
+            btn.textContent = 'Finish';
+            btn.onclick = closeStoryModal;
+            restartBtn.classList.remove('hidden');
+        } else {
+            btn.textContent = 'Continue';
+            btn.onclick = advanceStory;
+            restartBtn.classList.add('hidden');
+        }
+    }
+
+    function restartStory() {
+        if (!currentStory) return;
+        currentPartIndex = 0;
+        document.querySelectorAll('.story-part').forEach((el, i) => {
+            if (i === 0) {
+                el.classList.add('revealed');
+            } else {
+                el.classList.remove('revealed');
+            }
+        });
+        updateContinueButton();
+        /* Scroll back to top of modal content */
+        storyModalContent.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function closeStoryModal() {
+        storyModal.classList.remove('open');
+        document.body.style.overflow = '';
+        currentStory = null;
+        currentPartIndex = 0;
+    }
+
+    /* Close modal on backdrop click */
+    storyModal.addEventListener('click', (e) => {
+        if (e.target === storyModal) closeStoryModal();
+    });
+
+    /* Close modal on Escape */
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (storyModal.classList.contains('open')) closeStoryModal();
+            if (authModal.classList.contains('open')) closeAuthModal();
+        }
+    });
+
+    /* =============================================================
+       AUTH MODAL
+       ============================================================= */
+    const authModal = document.getElementById('authModal');
+    const signInBtn = document.getElementById('signInBtn');
+    const authClose = document.getElementById('authClose');
+    const authForm = document.getElementById('authForm');
+    const authEmail = document.getElementById('authEmail');
+    const authPassword = document.getElementById('authPassword');
+    const emailError = document.getElementById('emailError');
+    const passError = document.getElementById('passError');
+    const switchToSignup = document.getElementById('switchToSignup');
+    let isSignupMode = false;
+
+    signInBtn.addEventListener('click', () => {
+        authModal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        authEmail.focus();
+    });
+
+    authClose.addEventListener('click', closeAuthModal);
+    authModal.addEventListener('click', (e) => {
+        if (e.target === authModal) closeAuthModal();
+    });
+
+    function closeAuthModal() {
+        authModal.classList.remove('open');
+        document.body.style.overflow = '';
+        authForm.reset();
+        clearAuthErrors();
+    }
+
+    function clearAuthErrors() {
+        authEmail.classList.remove('error');
+        authPassword.classList.remove('error');
+        emailError.classList.remove('show');
+        passError.classList.remove('show');
+    }
+
+    switchToSignup.addEventListener('click', (e) => {
+        e.preventDefault();
+        isSignupMode = !isSignupMode;
+        const title = authModal.querySelector('h2');
+        const submitBtn = authForm.querySelector('button[type="submit"]');
+        const toggleText = authModal.querySelector('#switchToSignup');
+
+        if (isSignupMode) {
+            title.textContent = 'Create Account';
+            submitBtn.textContent = 'Create Account';
+            toggleText.textContent = 'Already have an account? Sign in';
+        } else {
+            title.textContent = 'Welcome Back';
+            submitBtn.textContent = 'Sign In';
+            toggleText.textContent = 'No account? Create one';
+        }
+    });
+
+    authForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        clearAuthErrors();
+
+        const email = authEmail.value.trim();
+        const password = authPassword.value;
+        let valid = true;
+
+        /* Email validation */
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            authEmail.classList.add('error');
+            emailError.classList.add('show');
+            valid = false;
+        }
+
+        /* Password validation */
+        if (password.length < 6) {
+            authPassword.classList.add('error');
+            passError.classList.add('show');
+            valid = false;
+        }
+
+        if (!valid) return;
+
+        /*
+         * Future Supabase Auth Integration:
+         *
+         * if (isSignupMode) {
+         *     const { data, error } = await supabase.auth.signUp({ email, password });
+         * } else {
+         *     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+         * }
+         * if (error) { show error toast; return; }
+         * showToast(`Welcome${isSignupMode ? '' : ' back'}, ${email.split('@')[0]}!`);
+         */
+
+        closeAuthModal();
+        showToast(`Welcome${isSignupMode ? '' : ' back'}! You are now signed in.`);
+    });
+
+    /* =============================================================
+       TOAST SYSTEM
+       ============================================================= */
+    const toastContainer = document.getElementById('toastContainer');
+
+    function showToast(message, duration = 3500) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('out');
+            toast.addEventListener('animationend', () => toast.remove());
+        }, duration);
+    }
+
+    /* =============================================================
+       PAGE LOAD
+       ============================================================= */
+    window.addEventListener('load', () => {
+        /* Dismiss loader */
+        setTimeout(() => {
+            document.getElementById('pageLoader').classList.add('done');
+            setTimeout(() => {
+                document.getElementById('pageLoader').remove();
+            }, 800);
+        }, 600);
+
+        /* Initial render */
+        renderStories(STORIES);
+    });
+    </script>
+</body>
+</html>
